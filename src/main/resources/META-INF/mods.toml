@@ -1,0 +1,28 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="endportalskin"
+version="1.0.0"
+displayName="End Portal Skin"
+displayTest="IGNORE_SERVER_VERSION"
+authors="Toi"
+description='''
+Applique la texture animee du portail de l'End a tout ton skin.
+Mod 100 % client : seul toi vois l'effet. Touche K pour activer / desactiver.
+'''
+
+[[dependencies.endportalskin]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="CLIENT"
+
+[[dependencies.endportalskin]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="CLIENT"
