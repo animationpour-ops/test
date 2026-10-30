@@ -24,6 +24,12 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = EndPortalSkinMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class ClientForgeEvents {
 
+    /**
+     * Garde anti-boucle : renderRightHand / renderLeftHand declenchent eux-memes RenderArmEvent.
+     * Sans cette garde, appeler renderRightHand depuis le gestionnaire le rappellerait a l'infini.
+     */
+    private static boolean renderingArm = false;
+
     private ClientForgeEvents() {
     }
 
@@ -45,11 +51,16 @@ public final class ClientForgeEvents {
     }
 
     /**
-     * Bras en vue premiere personne : on remplace le rendu vanilla (bras + manche avec la texture du skin)
-     * par le rendu vanilla suivi du meme bras redessine avec le portail de l'End par-dessus.
+     * Bras en vue premiere personne : on annule le rendu d'origine, on le refait nous-memes
+     * (skin normal), puis on redessine le meme bras avec le portail de l'End par-dessus.
      */
     @SubscribeEvent
     public static void onRenderArm(RenderArmEvent event) {
+        // Appel provoque par notre propre renderRightHand / renderLeftHand : on laisse le rendu vanilla se faire.
+        if (renderingArm) {
+            return;
+        }
+
         AbstractClientPlayer player = event.getPlayer();
         if (player.isInvisible() || !EndSkinState.appliesTo(player)) {
             return;
@@ -66,22 +77,28 @@ public final class ClientForgeEvents {
         int light = event.getPackedLight();
         boolean right = event.getArm() == HumanoidArm.RIGHT;
 
-        // Annule le rendu d'origine pour controler l'ordre de dessin (skin d'abord, portail ensuite).
-        event.setCanceled(true);
+        renderingArm = true;
+        try {
+            // Annule le rendu d'origine (celui de l'evenement en cours).
+            event.setCanceled(true);
 
-        // Rendu vanilla : prepare aussi le modele (visibilite des manches, pose du bras a 0).
-        if (right) {
-            renderer.renderRightHand(poseStack, buffer, light, player);
-        } else {
-            renderer.renderLeftHand(poseStack, buffer, light, player);
+            // Rendu vanilla du bras avec le skin. Il redeclenche l'evenement, ignore grace a la garde.
+            // Prepare aussi le modele (visibilite des manches, pose du bras a 0).
+            if (right) {
+                renderer.renderRightHand(poseStack, buffer, light, player);
+            } else {
+                renderer.renderLeftHand(poseStack, buffer, light, player);
+            }
+
+            // Meme bras, meme manche, mais avec le rendu du portail de l'End.
+            PlayerModel<AbstractClientPlayer> model = renderer.getModel();
+            ModelPart arm = right ? model.rightArm : model.leftArm;
+            ModelPart sleeve = right ? model.rightSleeve : model.leftSleeve;
+            VertexConsumer portal = buffer.getBuffer(RenderType.endPortal());
+            arm.render(poseStack, portal, light, OverlayTexture.NO_OVERLAY);
+            sleeve.render(poseStack, portal, light, OverlayTexture.NO_OVERLAY);
+        } finally {
+            renderingArm = false;
         }
-
-        // Meme bras, meme manche, mais avec le rendu du portail de l'End.
-        PlayerModel<AbstractClientPlayer> model = renderer.getModel();
-        ModelPart arm = right ? model.rightArm : model.leftArm;
-        ModelPart sleeve = right ? model.rightSleeve : model.leftSleeve;
-        VertexConsumer portal = buffer.getBuffer(RenderType.endPortal());
-        arm.render(poseStack, portal, light, OverlayTexture.NO_OVERLAY);
-        sleeve.render(poseStack, portal, light, OverlayTexture.NO_OVERLAY);
     }
 }
